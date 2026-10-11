@@ -15,7 +15,7 @@ def make_car(desired_v:float=20.0, dt:float=0.1) -> dict:
         "step" : 0,
     
         #hint: use these variables in the integral and derivative portion of your PID control (steps 5 and 6 )
-        "error_prev" : None,
+        "error_prev" : 0.0,
         "net_integral" : 0.0
     }
     return car_state_dictionary
@@ -36,6 +36,7 @@ def update(car: dict, throttle_perc: float, mass: float = 1000, max_throttle_for
         car["a"] = (force / mass) - friction
         car["v"] += car["a"] * car["dt"]
         car["x"] += car["v"] * car["dt"]
+        car["error_prev"] = car["desired_v"] - car["v"]
         car["t"] += car["dt"]
         car["step"] += 1
 
@@ -43,15 +44,22 @@ def update(car: dict, throttle_perc: float, mass: float = 1000, max_throttle_for
 def calculate_desired_acceleration(car: dict, K_P: float, K_I: float = 0.0, K_D: float = 0.0) -> tuple[float, float]:
         #input: car["v"], car["desired_v"] (floats)
         #output: desired acceleration and error tuple(float, float)
+        
+        # uses the pid control formula to calculate the desired acceleration
+        
          
-         error_prev = car["desired_v"] - car ["v"];
-         car["a"] += K_P * error_prev;
+         
+         error = car["desired_v"] - car ["v"];
+         car["a"] += K_P * error;
+         car["a"] += integral_accumulated(car,error);
+         car["a"] +=  derivative_term(car, error);
+         
 
-         return car["a"], error_prev
+         return car["a"], error
 
 
 
-def acceleration_to_throttle_percentage(acceleration_desired: float, mass: float = 1000, max_throttle_force: float = 5000) -> float:
+def acceleration_to_throttle_percentage(car: dict, acceleration_desired: float, mass: float = 1000, max_throttle_force: float = 5000) -> float:
         
         
         
@@ -59,17 +67,35 @@ def acceleration_to_throttle_percentage(acceleration_desired: float, mass: float
         #output: throttle percentage (float, -1 to 1)
         
 
-        max_acceleration : float
-        max_acceleration = max_throttle_force/mass 
+       max_acceleration : float
+       max_acceleration = max_throttle_force/mass 
 
-        throttle_percentage : float
-        throttle_percentage = acceleration_desired/max_acceleration * 1
+       
+       throttle_perc = acceleration_desired/max_acceleration * 1
 
-       myList = [0,throttle_percentage]
-        percent_List = np.clip(myList,0,1)
+       myList = [0,throttle_perc]
+       percent_List = np.clip(myList,-1,1)
 
-        throttle_percentage = percent_List[1]
+       throttle_perc  = percent_List[1]
 
-        return throttle_percentage 
+        return throttle_perc 
+
+def integral_accumulated(car: dict, error: float) -> float:
+
+                car["net_integral"] += error * car["dt"]
+
+                 return car["net_integral"]
+
+def derivative_term(car:dict, error: float, K_D: float = 0.0) -> float:
+               
+               de : float
+               de = (error - car["error_prev"])/car["dt"]
+
+               derivative : float
+               derivative = K_D * de
+
+
+                return derivative 
+
 
        
